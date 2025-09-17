@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { AppContext } from './contexts/AppContext';
-import type { Video, AdminSettings, AppContextType, User, PaymentOption, PurchaseCode, Notification } from './types';
+import type { Video, AdminSettings, AppContextType, User, PaymentOption, PurchaseCode } from './types';
 import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
 import ProfilePage from './pages/ProfilePage';
@@ -29,25 +29,12 @@ const App: React.FC = () => {
     ]
   });
   const [purchaseCodes, setPurchaseCodes] = useState<PurchaseCode[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [videoQueue, setVideoQueue] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [videoProgress, setVideoProgress] = useState(0);
   const [isWatching, setIsWatching] = useState(false);
-
-  const addNotification = useCallback((userId: string, message: string, type: Notification['type']) => {
-    const newNotification: Notification = {
-        id: crypto.randomUUID(),
-        userId,
-        message,
-        type,
-        timestamp: Date.now(),
-        isRead: false,
-    };
-    setNotifications(prev => [newNotification, ...prev]);
-  }, []);
 
   // Load state from localStorage on initial render
   useEffect(() => {
@@ -56,13 +43,9 @@ const App: React.FC = () => {
       const storedSettings = localStorage.getItem('settings');
       const storedUsers = localStorage.getItem('allUsers');
       const storedPurchaseCodes = localStorage.getItem('purchaseCodes');
-      const storedNotifications = localStorage.getItem('notifications');
       const currentUserId = localStorage.getItem('currentUserId');
       const sessionIsAdmin = sessionStorage.getItem('isAdmin');
       
-      // Fix: Wrapped the object type in parentheses to correctly define an array of complex objects.
-      let notificationsToCreate: (Omit<Notification, 'id' | 'userId'> & { userId: string })[] = [];
-
       const loadedUsers: User[] = storedUsers ? JSON.parse(storedUsers) : [];
       // migration for users who dont have the new properties
       let usersToUpdate = loadedUsers.map(u => ({
@@ -107,14 +90,6 @@ const App: React.FC = () => {
                     totalPointsEarned: u.totalPointsEarned + pointsToAdd,
                     referredUserIds: [...(u.referredUserIds || []), newUserId]
                 } : u);
-                
-                notificationsToCreate.push({
-                    userId: referrer.id,
-                    message: `You received ${pointsToAdd} points because a new user signed up with your referral code!`,
-                    type: 'success',
-                    timestamp: Date.now(),
-                    isRead: false
-                });
             }
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
@@ -136,22 +111,16 @@ const App: React.FC = () => {
       setAllUsers(usersToUpdate);
       
       if (storedVideos) {
-        // Migration for existing videos to add 'status'
-        const loadedVideos = (JSON.parse(storedVideos) as Video[]).map(v => ({...v, status: v.status || 'approved' }));
-        setVideos(loadedVideos);
+        setVideos(JSON.parse(storedVideos));
       } else {
         const defaultVideos: Video[] = [
-          { id: 'dQw4w9WgXcQ', title: 'Rick Astley - Never Gonna Give You Up (Official Music Video)', description: 'The official video for "Never Gonna Give You Up" by Rick Astley. This iconic 80s hit has become a cultural phenomenon and an internet sensation. Enjoy the classic!', submittedAt: Date.now(), isDefault: true, views: 0, duration: 212, submittedBy: 'admin', status: 'approved' },
-          { id: '3JZ_D3ELwOQ', title: 'iPhone 13 Pro Review: A Better Camera?', description: 'MKBHD provides an in-depth review of the iPhone 13 Pro, focusing on its camera improvements, ProMotion display, and battery life. Is it worth the upgrade?', submittedAt: Date.now(), isDefault: true, views: 0, duration: 635, submittedBy: 'admin', status: 'approved' },
-          { id: 'L_LUpnjgPso', title: '4K Drone Footage - The Beauty of Nature', description: 'Relax and enjoy stunning 4K drone footage showcasing majestic mountain ranges, serene lakes, and breathtaking landscapes. A perfect video to unwind.', submittedAt: Date.now(), isDefault: true, views: 0, duration: 180, submittedBy: 'admin', status: 'approved' },
+          { id: 'dQw4w9WgXcQ', title: 'Rick Astley - Never Gonna Give You Up (Official Music Video)', description: 'The official video for "Never Gonna Give You Up" by Rick Astley. This iconic 80s hit has become a cultural phenomenon and an internet sensation. Enjoy the classic!', submittedAt: Date.now(), isDefault: true, views: 0, duration: 212, submittedBy: 'admin' },
+          { id: '3JZ_D3ELwOQ', title: 'iPhone 13 Pro Review: A Better Camera?', description: 'MKBHD provides an in-depth review of the iPhone 13 Pro, focusing on its camera improvements, ProMotion display, and battery life. Is it worth the upgrade?', submittedAt: Date.now(), isDefault: true, views: 0, duration: 635, submittedBy: 'admin' },
+          { id: 'L_LUpnjgPso', title: '4K Drone Footage - The Beauty of Nature', description: 'Relax and enjoy stunning 4K drone footage showcasing majestic mountain ranges, serene lakes, and breathtaking landscapes. A perfect video to unwind.', submittedAt: Date.now(), isDefault: true, views: 0, duration: 180, submittedBy: 'admin' },
         ];
         setVideos(defaultVideos);
       }
       
-      const loadedNotifications: Notification[] = storedNotifications ? JSON.parse(storedNotifications) : [];
-      const newNotifications = notificationsToCreate.map(n => ({...n, id: crypto.randomUUID()}));
-      setNotifications([...newNotifications, ...loadedNotifications]);
-
       if (loadedSettings) {
         setSettings(effectiveSettings);
       }
@@ -169,7 +138,6 @@ const App: React.FC = () => {
   useEffect(() => { if(!isLoading) localStorage.setItem('allUsers', JSON.stringify(allUsers)); }, [allUsers, isLoading]);
   useEffect(() => { if(!isLoading) localStorage.setItem('settings', JSON.stringify(settings)); }, [settings, isLoading]);
   useEffect(() => { if(!isLoading) localStorage.setItem('purchaseCodes', JSON.stringify(purchaseCodes)); }, [purchaseCodes, isLoading]);
-  useEffect(() => { if(!isLoading) localStorage.setItem('notifications', JSON.stringify(notifications)); }, [notifications, isLoading]);
 
   useEffect(() => {
     setVideoProgress(0);
@@ -197,36 +165,14 @@ const App: React.FC = () => {
         views: 0,
         duration: 0,
         submittedBy: currentUser.id,
-        status: 'pending',
     };
     setVideos(prev => [...prev, newVideo]);
-    addNotification(currentUser.id, `Your video was submitted and is now pending review.`, 'info');
   };
 
   const updateVideo = (id: string, newTitle: string, newDescription: string, isDefault: boolean, newDuration: number) => {
     setVideos(prev => prev.map(v => v.id === id ? { ...v, title: newTitle, description: newDescription, isDefault, duration: newDuration } : v));
   };
   
-  const updateVideoStatus = (id: string, status: 'approved' | 'rejected', rejectionReason?: string) => {
-    let videoTitle = 'your video';
-    setVideos(prev => prev.map(v => {
-        if (v.id === id) {
-            videoTitle = `"${v.title}"`;
-            const submitter = allUsers.find(u => u.id === v.submittedBy);
-            if (submitter) {
-                if (status === 'rejected') {
-                    addPointsToUser(submitter.id, settings.costPerSubmission);
-                    addNotification(submitter.id, `Your video submission ${videoTitle} was rejected. Reason: ${rejectionReason || 'No reason provided.'} Your points have been refunded.`, 'danger');
-                } else {
-                    addNotification(submitter.id, `Your video submission ${videoTitle} has been approved!`, 'success');
-                }
-            }
-            return { ...v, status, rejectionReason: rejectionReason || undefined };
-        }
-        return v;
-    }));
-  };
-
   const deleteVideo = (id: string) => { setVideos(prev => prev.filter(v => v.id !== id)); };
 
   const addPoints = (amount: number) => {
@@ -312,7 +258,6 @@ const App: React.FC = () => {
     if (codeToRedeem) {
         addPoints(codeToRedeem.points);
         setPurchaseCodes(prev => prev.map(pc => pc.code === codeToRedeem.code ? { ...pc, isRedeemed: true, redeemedBy: currentUser.id } : pc));
-        addNotification(currentUser.id, `You successfully redeemed a code for ${codeToRedeem.points.toLocaleString()} points!`, 'success');
         return true;
     }
     return false;
@@ -321,6 +266,7 @@ const App: React.FC = () => {
   const deletePurchaseCode = (code: string) => {
     setPurchaseCodes(prev => prev.filter(pc => pc.code !== code));
   };
+
 
   const incrementViewCount = (id: string) => {
     setVideos(prev => prev.map(v => v.id === id ? { ...v, views: v.views + 1 } : v));
@@ -354,11 +300,9 @@ const App: React.FC = () => {
 
 
   const generateFairPlaylist = useCallback((allVideos: Video[], user: User | null): Video[] => {
-    const approvedVideos = allVideos.filter(v => v.status === 'approved');
-
     const unwatchedVideos = user 
-        ? approvedVideos.filter(v => !(user.watchedVideoIds || []).includes(v.id))
-        : approvedVideos;
+        ? allVideos.filter(v => !(user.watchedVideoIds || []).includes(v.id))
+        : allVideos;
 
     const adminVideos = unwatchedVideos.filter(v => v.isDefault).sort((a, b) => a.views - b.views);
     const userVideos = unwatchedVideos.filter(v => !v.isDefault).sort((a, b) => a.views - b.views);
@@ -393,6 +337,7 @@ const App: React.FC = () => {
     const playlist = generateFairPlaylist(videos, currentUser);
     const currentIndex = playlist.findIndex(v => v.id === currentVideo.id);
     if (currentIndex === -1) { 
+        // This can happen if the current video was the last one watched
         if(playlist.length > 0) {
             setCurrentVideo(playlist[0]);
         } else {
@@ -408,15 +353,6 @@ const App: React.FC = () => {
     }
     setVideoQueue(upcomingVideos);
   }, [videos, currentVideo, currentUser, generateFairPlaylist]);
-  
-  const markNotificationAsRead = (notificationId: string) => {
-    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
-  };
-  
-  const markAllNotificationsAsRead = () => {
-    if (!currentUser) return;
-    setNotifications(prev => prev.map(n => n.userId === currentUser.id ? { ...n, isRead: true } : n));
-  };
 
   const contextValue: AppContextType = {
     videos,
@@ -428,10 +364,8 @@ const App: React.FC = () => {
     videoQueue,
     purchaseCodes,
     videoProgress,
-    notifications,
     addVideo,
     updateVideo,
-    updateVideoStatus,
     deleteVideo,
     addPoints,
     spendPoints,
@@ -453,9 +387,6 @@ const App: React.FC = () => {
     setVideoProgress,
     isWatching,
     setIsWatching,
-    addNotification,
-    markNotificationAsRead,
-    markAllNotificationsAsRead,
   };
   
   return (

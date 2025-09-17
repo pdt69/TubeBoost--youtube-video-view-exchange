@@ -17,11 +17,9 @@ export interface Video {
   isDefault: boolean; // admin-added
   views: number;
   title: string;
-  description:string;
+  description: string;
   duration: number; // in seconds
   submittedBy: string; // User ID
-  status: 'pending' | 'approved' | 'rejected';
-  rejectionReason?: string;
 }
 
 export interface PaymentOption {
@@ -46,16 +44,6 @@ export interface ReferralTier {
   bonusPoints: number;
 }
 
-export interface Notification {
-  id: string;
-  userId: string;
-  message: string;
-  type: 'success' | 'info' | 'warning' | 'danger';
-  timestamp: number;
-  isRead: boolean;
-  link?: string;
-}
-
 export interface AdminSettings {
   adminPass: string;
   pointsPerWatch: number;
@@ -76,10 +64,8 @@ export type AppContextType = {
   videoQueue: Video[];
   purchaseCodes: PurchaseCode[];
   videoProgress: number;
-  notifications: Notification[];
   addVideo: (url: string, description: string) => Promise<void>;
   updateVideo: (id: string, newTitle: string, newDescription: string, isDefault: boolean, newDuration: number) => void;
-  updateVideoStatus: (id: string, status: 'approved' | 'rejected', rejectionReason?: string) => void;
   deleteVideo: (id: string) => void;
   addPoints: (amount: number) => void;
   spendPoints: (amount: number) => boolean;
@@ -98,10 +84,8 @@ export type AppContextType = {
   deletePurchaseCode: (code: string) => void;
   markVideoAsWatched: (videoId: string) => void;
   updateUserDisplayName: (newName: string) => void;
+  // Fix: Correctly type `setVideoProgress` to allow functional updates.
   setVideoProgress: Dispatch<SetStateAction<number>>;
   isWatching: boolean;
   setIsWatching: Dispatch<SetStateAction<boolean>>;
-  addNotification: (userId: string, message: string, type: Notification['type']) => void;
-  markNotificationAsRead: (notificationId: string) => void;
-  markAllNotificationsAsRead: () => void;
 };

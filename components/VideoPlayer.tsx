@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
-import * as reactYoutube from 'react-youtube';
-// We still need the types for props and the player instance.
+import YouTube from 'react-youtube';
+// Fix: Import `YouTubeProps` to derive the `Options` type, as `Options` may not be directly exported.
 import type { YouTubePlayer, YouTubeProps } from 'react-youtube';
 import { AppContext } from '../contexts/AppContext';
 import type { Video } from '../types';
-
-// The react-youtube library's UMD build, when served from a CDN, can have an inconsistent module structure.
-// This line robustly extracts the component, whether it's on a `default` property or is the root export itself.
-const YouTube = (reactYoutube as any).default || reactYoutube;
-
 
 interface VideoPlayerProps {
     video: Video;
@@ -36,8 +31,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         selectNextVideo,
         addPoints,
         incrementViewCount,
-        markVideoAsWatched,
-        addNotification
+        markVideoAsWatched
     } = context;
     const WATCH_DURATION = settings.watchDuration || 30;
 
@@ -61,21 +55,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
 
 
     const handleWatchComplete = useCallback(() => {
-        if (!currentUser) return;
         const pointsEarned = settings.pointsPerWatch;
         setCompletionMessage(`Video watched! +${pointsEarned} points earned.`);
 
         addPoints(pointsEarned);
         incrementViewCount(video.id);
         markVideoAsWatched(video.id);
-        addNotification(currentUser.id, `You earned ${pointsEarned} points for watching a video.`, 'success');
         
         setTimeout(() => {
             setIsWatching(false);
             selectNextVideo();
             setTimeout(() => setCompletionMessage(null), 2000); 
         }, 1500);
-    }, [settings.pointsPerWatch, addPoints, incrementViewCount, markVideoAsWatched, video.id, setIsWatching, selectNextVideo, addNotification, currentUser]);
+    }, [settings.pointsPerWatch, addPoints, incrementViewCount, markVideoAsWatched, video.id, setIsWatching, selectNextVideo]);
     
     const startTimer = useCallback(() => {
         if (isWatching) return;
