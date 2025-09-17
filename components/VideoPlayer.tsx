@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
-// Fix: Changed the named import of `YouTube` to a default import to resolve the module resolution error.
-import YouTube from 'react-youtube';
-// Fix: Import `YouTubeProps` to derive the `Options` type, as `Options` may not be directly exported.
+import * as reactYoutube from 'react-youtube';
+// We still need the types for props and the player instance.
 import type { YouTubePlayer, YouTubeProps } from 'react-youtube';
 import { AppContext } from '../contexts/AppContext';
 import type { Video } from '../types';
+
+// The react-youtube library's UMD build, when served from a CDN, can have an inconsistent module structure.
+// This line robustly extracts the component, whether it's on a `default` property or is the root export itself.
+const YouTube = (reactYoutube as any).default || reactYoutube;
+
 
 interface VideoPlayerProps {
     video: Video;
