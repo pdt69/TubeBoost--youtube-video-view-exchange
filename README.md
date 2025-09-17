@@ -19,7 +19,7 @@ Click the button below to automatically deploy this application to your own free
 2.  Edit this `README.md` file in your forked repository.
 3.  Replace the placeholder URL `https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME` in the link below with the actual URL of your forked repository.
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=[)](https://github.com/pdt69/pdt69-TubeBoost--youtube-video-view-exchange)
 
 **Netlify Configuration:**
 This project does not require a build command. When setting up on Netlify, you can leave the **Build command** field blank and set the **Publish directory** to the root of your repository (or just leave it as is, Netlify usually figures this out).
