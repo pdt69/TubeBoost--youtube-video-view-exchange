@@ -58,7 +58,7 @@ interface PasswordStrength {
     width: string;
 }
 
-type SortableColumn = 'title' | 'views' | 'submittedAt' | 'duration';
+type SortableColumn = 'title' | 'views' | 'submittedAt' | 'duration' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -72,14 +72,9 @@ const SaveStatusIndicator: React.FC<{ status: SaveStatus; message?: string }> = 
         error: { text: message || 'Error saving.', color: 'text-[--color-danger]' },
     };
     
-    // Because of the `if (status === 'idle')` check above, TypeScript correctly infers
-    // that `status` is a valid key for `statusConfig`, so no type assertion is needed.
     const { text, color } = statusConfig[status];
 
     return (
-        // Fix: The comparison `status === 'idle'` caused a TypeScript error because the type of `status`
-        // is narrowed by the check above, and it can never be 'idle' at this point. Since the
-        // component is always visible when rendered, `opacity-100` is used directly.
         <div className="flex items-center gap-2 text-sm transition-opacity duration-300 opacity-100">
             <p className={color}>{text}</p>
         </div>
@@ -141,7 +136,7 @@ const EditVideoModal: React.FC<{ video: Video, onClose: () => void, onSave: (id:
 const AdminDashboard: React.FC = () => {
     const { 
         videos, settings, allUsers, logout, updateVideo, deleteVideo, addPointsToUser, 
-        updateSettings,
+        updateSettings, updateVideoStatus,
         purchaseCodes, deletePurchaseCode
     } = useContext(AppContext)!;
     
@@ -168,6 +163,7 @@ const AdminDashboard: React.FC = () => {
     // Video Management State
     const [editingVideo, setEditingVideo] = useState<Video | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
     const [sortColumn, setSortColumn] = useState<SortableColumn>('submittedAt');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
@@ -183,8 +179,6 @@ const AdminDashboard: React.FC = () => {
 
     // --- Autosave for General Settings ---
     useEffect(() => {
-        // This effect runs only when these specific state values change.
-        // It avoids running on the initial render if the values match the context settings.
         const hasChanges = newAdminPass ||
             pointsPerWatch !== settings.pointsPerWatch ||
             costPerSubmission !== settings.costPerSubmission ||
@@ -219,129 +213,127 @@ const AdminDashboard: React.FC = () => {
             }
             setTimeout(() => setSettingsSaveStatus('idle'), 3000);
         }, 1500);
-    }, [newAdminPass, pointsPerWatch, costPerSubmission, referralPoints, watchDuration]);
-
+    }, [newAdminPass, pointsPerWatch, costPerSubmission, referralPoints, watchDuration, passwordStrength, updateSettings, settings]);
+    
     // --- Autosave for Payment Options ---
     useEffect(() => {
-        if (JSON.stringify(localPaymentOptions) !== JSON.stringify(settings.paymentOptions)) {
-            setPaymentOptionsSaveStatus('saving');
-            debounce(() => {
-                try {
-                    updateSettings({ paymentOptions: localPaymentOptions });
-                    setPaymentOptionsSaveStatus('saved');
-                } catch (e) {
-                    setPaymentOptionsSaveStatus('error');
-                    setPaymentOptionsStatusMessage('Failed to save payment options.');
-                }
-                setTimeout(() => setPaymentOptionsSaveStatus('idle'), 3000);
-            }, 1500);
+        // Prevent saving on initial render
+        if (JSON.stringify(localPaymentOptions) === JSON.stringify(settings.paymentOptions)) {
+            return;
         }
-    }, [localPaymentOptions, settings.paymentOptions, updateSettings]);
+        setPaymentOptionsSaveStatus('saving');
+        debounce(() => {
+            try {
+                updateSettings({ paymentOptions: localPaymentOptions });
+                setPaymentOptionsSaveStatus('saved');
+            } catch(e) {
+                setPaymentOptionsSaveStatus('error');
+                setPaymentOptionsStatusMessage('Failed to save payment options.');
+            }
+            setTimeout(() => setPaymentOptionsSaveStatus('idle'), 3000);
+        }, 1500);
+    }, [localPaymentOptions, updateSettings, settings.paymentOptions]);
     
     // --- Autosave for Referral Tiers ---
     useEffect(() => {
-        if (JSON.stringify(localReferralTiers) !== JSON.stringify(settings.referralTiers)) {
-            setReferralTiersSaveStatus('saving');
-            debounce(() => {
-                try {
-                    updateSettings({ referralTiers: localReferralTiers });
-                    setReferralTiersSaveStatus('saved');
-                } catch (e) {
-                    setReferralTiersSaveStatus('error');
-                    setReferralTiersStatusMessage('Failed to save referral tiers.');
-                }
-                setTimeout(() => setReferralTiersSaveStatus('idle'), 3000);
-            }, 1500);
-        }
-    }, [localReferralTiers, settings.referralTiers, updateSettings]);
-
-    useEffect(() => {
-        if (!newAdminPass) {
-            setPasswordStrength(null);
+        if (JSON.stringify(localReferralTiers) === JSON.stringify(settings.referralTiers)) {
             return;
         }
-        let score = 0;
-        if (newAdminPass.length >= 8) score++;
-        if (/[A-Z]/.test(newAdminPass)) score++;
-        if (/[a-z]/.test(newAdminPass)) score++;
-        if (/[0-9]/.test(newAdminPass)) score++;
-        if (/[^A-Za-z0-9]/.test(newAdminPass)) score++;
-        score = Math.min(score, 4);
-        
-        const labels = ['Very Weak', 'Weak', 'Okay', 'Good', 'Strong'];
-        const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-green-500'];
-        const widths = ['w-1/5', 'w-2/5', 'w-3/5', 'w-4/5', 'w-full'];
+        setReferralTiersSaveStatus('saving');
+        debounce(() => {
+            try {
+                updateSettings({ referralTiers: localReferralTiers });
+                setReferralTiersSaveStatus('saved');
+            } catch(e) {
+                setReferralTiersSaveStatus('error');
+                setReferralTiersStatusMessage('Failed to save referral tiers.');
+            }
+            setTimeout(() => setReferralTiersSaveStatus('idle'), 3000);
+        }, 1500);
+    }, [localReferralTiers, updateSettings, settings.referralTiers]);
 
-        setPasswordStrength({ score, label: labels[score], color: colors[score], width: widths[score] });
-    }, [newAdminPass]);
-    
-    const handleSort = (column: SortableColumn) => {
-        const newSortOrder = (sortColumn === column && sortOrder === 'asc') ? 'desc' : 'asc';
-        setSortColumn(column);
-        setSortOrder(newSortOrder);
+    const checkPasswordStrength = (pass: string): PasswordStrength => {
+        let score = 0;
+        if (pass.length > 8) score++;
+        if (pass.match(/[a-z]/) && pass.match(/[A-Z]/)) score++;
+        if (pass.match(/[0-9]/)) score++;
+        if (pass.match(/[^A-Za-z0-9]/)) score++;
+
+        const strengths: Omit<PasswordStrength, 'score'>[] = [
+            { label: 'Very Weak', color: 'bg-red-500', width: '25%' },
+            { label: 'Weak', color: 'bg-orange-500', width: '50%' },
+            { label: 'Good', color: 'bg-yellow-500', width: '75%' },
+            { label: 'Strong', color: 'bg-green-500', width: '100%' },
+            { label: 'Very Strong', color: 'bg-green-500', width: '100%' }
+        ];
+
+        return { score, ...strengths[score] };
     };
 
-    const filteredVideos = useMemo(() => {
-        return videos
-            .filter(video => video.title.toLowerCase().includes(searchTerm.toLowerCase()))
-            .sort((a, b) => {
-                const aVal = a[sortColumn];
-                const bVal = b[sortColumn];
-                if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-                return 0;
-            });
-    }, [videos, searchTerm, sortColumn, sortOrder]);
+    const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newPass = e.target.value;
+        setNewAdminPass(newPass);
+        if (newPass) {
+            setPasswordStrength(checkPasswordStrength(newPass));
+        } else {
+            setPasswordStrength(null);
+        }
+    };
+    
+    const handleRejectVideo = (id: string) => {
+        const reason = prompt("Please provide a reason for rejecting this video:");
+        if (reason !== null) { // User clicked OK, even if the reason is empty
+            updateVideoStatus(id, 'rejected', reason);
+        }
+    };
 
-    const filteredUsers = useMemo(() => {
-        return allUsers
-            .filter(user => user.id.toLowerCase().includes(userSearchTerm.toLowerCase()) || user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()));
+    const handleSort = (column: SortableColumn) => {
+        if (sortColumn === column) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(column);
+            setSortOrder('asc');
+        }
+    };
+    
+    const sortedVideos = useMemo(() => {
+        const filtered = videos.filter(video => {
+            const matchesSearch = video.title.toLowerCase().includes(searchTerm.toLowerCase()) || video.id.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'all' || video.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+
+        return [...filtered].sort((a, b) => {
+            const aVal = a[sortColumn];
+            const bVal = b[sortColumn];
+
+            if (typeof aVal === 'string' && typeof bVal === 'string') {
+                return sortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            }
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+            }
+            return 0;
+        });
+    }, [videos, searchTerm, sortColumn, sortOrder, statusFilter]);
+
+    const sortedUsers = useMemo(() => {
+        return [...allUsers]
+            .filter(user => user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase()) || user.id.toLowerCase().includes(userSearchTerm.toLowerCase()))
+            .sort((a, b) => b.totalPointsEarned - a.totalPointsEarned);
     }, [allUsers, userSearchTerm]);
 
-    const handlePaymentOptionChange = (id: string, field: keyof PaymentOption, value: any) => {
-        setLocalPaymentOptions(prev => 
-            prev.map(opt => opt.id === id ? { ...opt, [field]: value } : opt)
-        );
-    };
-    
-    const handleAddPaymentOption = () => {
-         const newOption: PaymentOption = {
-            id: crypto.randomUUID(),
-            points: 50000,
-            price: 5,
-            isSpecialOffer: false,
-        };
-        setLocalPaymentOptions(prev => [...prev, newOption]);
-    }
-    
-    const handleDeletePaymentOption = (id: string) => {
-        setLocalPaymentOptions(prev => prev.filter(opt => opt.id !== id));
-    }
-    
-    const handleReferralTierChange = (id: string, field: keyof ReferralTier, value: any) => {
-        setLocalReferralTiers(prev => 
-            prev.map(tier => tier.id === id ? { ...tier, [field]: value } : tier)
-        );
-    };
-    
-    const handleAddReferralTier = () => {
-        const newTier: ReferralTier = {
-            id: crypto.randomUUID(),
-            referralCount: 0,
-            bonusPoints: 0,
-        };
-        setLocalReferralTiers(prev => [...prev, newTier]);
-    };
-    
-    const handleDeleteReferralTier = (id: string) => {
-        setLocalReferralTiers(prev => prev.filter(tier => tier.id !== id));
+    const statusColors: { [key in Video['status']]: string } = {
+        pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+        approved: 'bg-green-500/20 text-green-300 border-green-500/30',
+        rejected: 'bg-red-500/20 text-red-300 border-red-500/30',
     };
 
     return (
         <div className="container mx-auto max-w-7xl">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-4xl font-bold text-[--color-text-primary]">Admin Panel</h1>
-                <button onClick={logout} className="px-4 py-2 bg-[--color-bg-quaternary] text-[--color-text-primary] rounded-md hover:opacity-80 transition">
+                <h1 className="text-4xl font-bold text-[--color-text-primary]">Admin Dashboard</h1>
+                <button onClick={logout} className="px-4 py-2 bg-[--color-bg-quaternary] text-[--color-text-primary] rounded-md hover:bg-[--color-danger] transition">
                     Logout
                 </button>
             </div>
@@ -354,178 +346,152 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Points per Watch</label>
-                        <input type="number" value={pointsPerWatch} onChange={e => setPointsPerWatch(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Cost per Submission</label>
-                        <input type="number" value={costPerSubmission} onChange={e => setCostPerSubmission(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Referral Points</label>
-                        <input type="number" value={referralPoints} onChange={e => setReferralPoints(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Watch Duration (sec)</label>
-                        <input type="number" value={watchDuration} onChange={e => setWatchDuration(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                    </div>
-                    <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">New Admin Password</label>
-                        <input type="password" value={newAdminPass} onChange={e => setNewAdminPass(e.target.value)} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]" placeholder="Leave blank to keep current"/>
+                        <input type="password" value={newAdminPass} onChange={handlePasswordChange} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
                         {passwordStrength && (
                             <div className="mt-2">
-                                <div className="h-2 bg-[--color-bg-tertiary] rounded-full">
-                                    <div className={`h-2 rounded-full transition-all ${passwordStrength.color} ${passwordStrength.width}`}></div>
+                                <div className="w-full bg-gray-600 rounded-full h-2">
+                                    <div className={`h-2 rounded-full ${passwordStrength.color}`} style={{ width: passwordStrength.width }}></div>
                                 </div>
-                                <p className={`text-xs mt-1 ${passwordStrength.score < 2 ? 'text-red-400' : 'text-green-400'}`}>{passwordStrength.label}</p>
+                                <p className={`text-xs mt-1 ${passwordStrength.color.replace('bg-','text-')}`}>{passwordStrength.label}</p>
                             </div>
                         )}
                     </div>
+                     <div>
+                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Points per Watch</label>
+                        <input type="number" value={pointsPerWatch} onChange={e => setPointsPerWatch(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Cost per Video Submission</label>
+                        <input type="number" value={costPerSubmission} onChange={e => setCostPerSubmission(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Referral Signup Points</label>
+                        <input type="number" value={referralPoints} onChange={e => setReferralPoints(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-[--color-text-secondary] mb-1">Watch Duration (seconds)</label>
+                        <input type="number" value={watchDuration} onChange={e => setWatchDuration(Number(e.target.value))} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
+                    </div>
                 </div>
             </div>
-
-            {/* Payment Options */}
-            <div className="bg-[--color-bg-secondary] p-6 rounded-lg shadow-lg mb-8">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold text-[--color-text-primary]">Payment Options</h2>
-                    <SaveStatusIndicator status={paymentOptionsSaveStatus} message={paymentOptionsStatusMessage} />
-                </div>
-                <div className="space-y-4">
-                    {localPaymentOptions.map((opt) => (
-                        <div key={opt.id} className="grid grid-cols-1 md:grid-cols-6 gap-3 items-center p-3 bg-[--color-bg-tertiary] rounded-md">
-                            <input type="number" placeholder="Points" value={opt.points} onChange={e => handlePaymentOptionChange(opt.id, 'points', Number(e.target.value))} className="md:col-span-1 bg-[--color-bg-quaternary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                            <input type="number" placeholder="Price ($)" value={opt.price} onChange={e => handlePaymentOptionChange(opt.id, 'price', Number(e.target.value))} className="md:col-span-1 bg-[--color-bg-quaternary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                            <input type="text" placeholder="PayPal ID" value={opt.payPalId || ''} onChange={e => handlePaymentOptionChange(opt.id, 'payPalId', e.target.value)} className="md:col-span-1 bg-[--color-bg-quaternary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                            <input type="text" placeholder="ClickBank ID" value={opt.clickBankId || ''} onChange={e => handlePaymentOptionChange(opt.id, 'clickBankId', e.target.value)} className="md:col-span-1 bg-[--color-bg-quaternary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"/>
-                            <div className="md:col-span-1 flex items-center gap-2">
-                                <input type="checkbox" id={`special-${opt.id}`} checked={opt.isSpecialOffer} onChange={e => handlePaymentOptionChange(opt.id, 'isSpecialOffer', e.target.checked)} className="h-4 w-4 rounded border-[--color-border] bg-[--color-bg-primary] text-[--color-accent] focus:ring-[--color-accent]"/>
-                                <label htmlFor={`special-${opt.id}`} className="text-sm text-[--color-text-secondary]">Special</label>
-                            </div>
-                            <button onClick={() => handleDeletePaymentOption(opt.id)} className="md:col-span-1 bg-[--color-danger] text-white font-bold py-2 px-2 rounded-md hover:opacity-80 transition text-sm">Delete</button>
-                        </div>
-                    ))}
-                </div>
-                <button onClick={handleAddPaymentOption} className="mt-4 bg-[--color-success] text-white font-bold py-2 px-4 rounded-md hover:opacity-90 transition">Add Option</button>
-            </div>
-            
-            {/* Referral Tiers */}
-            <div className="bg-[--color-bg-secondary] p-6 rounded-lg shadow-lg mb-8">
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold text-[--color-text-primary]">Referral Tiers</h2>
-                    <SaveStatusIndicator status={referralTiersSaveStatus} message={referralTiersStatusMessage} />
-                 </div>
-                 <div className="space-y-4">
-                    {localReferralTiers.sort((a,b) => a.referralCount - b.referralCount).map(tier => (
-                         <div key={tier.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center p-3 bg-[--color-bg-tertiary] rounded-md">
-                            <input type="number" placeholder="Referral Count" value={tier.referralCount} onChange={e => handleReferralTierChange(tier.id, 'referralCount', Number(e.target.value))} className="md:col-span-1 bg-[--color-bg-quaternary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]" />
-                            <input type="number" placeholder="Bonus Points" value={tier.bonusPoints} onChange={e => handleReferralTierChange(tier.id, 'bonusPoints', Number(e.target.value))} className="md:col-span-2 bg-[--color-bg-quaternary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]" />
-                            <button onClick={() => handleDeleteReferralTier(tier.id)} className="md:col-span-1 bg-[--color-danger] text-white font-bold py-2 px-2 rounded-md hover:opacity-80 transition text-sm">Delete</button>
-                         </div>
-                    ))}
-                 </div>
-                 <button onClick={handleAddReferralTier} className="mt-4 bg-[--color-success] text-white font-bold py-2 px-4 rounded-md hover:opacity-90 transition">Add Tier</button>
-            </div>
-
 
             {/* Video Management */}
             <div className="bg-[--color-bg-secondary] p-6 rounded-lg shadow-lg mb-8">
-                <h2 className="text-2xl font-bold text-[--color-text-primary] mb-4">Video Management</h2>
-                <input type="text" placeholder="Search videos..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 mb-4 text-[--color-text-primary]"/>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-[--color-text-secondary]">
-                        <thead className="text-xs text-[--color-text-primary] uppercase bg-[--color-bg-tertiary]">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">Video</th>
-                                <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('views')}>Views</th>
-                                <th scope="col" className="px-6 py-3 cursor-pointer" onClick={() => handleSort('submittedAt')}>Submitted</th>
-                                <th scope="col" className="px-6 py-3">Submitted By</th>
-                                <th scope="col" className="px-6 py-3">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredVideos.map(video => (
-                                <tr key={video.id} className="bg-[--color-bg-secondary] border-b border-[--color-border] hover:bg-[--color-bg-tertiary]">
-                                    <th scope="row" className="px-6 py-4 font-medium text-[--color-text-primary] whitespace-nowrap">{video.title}</th>
-                                    <td className="px-6 py-4">{video.views}</td>
-                                    <td className="px-6 py-4">{new Date(video.submittedAt).toLocaleDateString()}</td>
-                                    <td className="px-6 py-4 font-mono text-xs">{video.submittedBy}</td>
-                                    <td className="px-6 py-4 flex gap-2">
-                                        <button onClick={() => setEditingVideo(video)} className="text-[--color-accent] hover:underline">Edit</button>
-                                        <button onClick={() => deleteVideo(video.id)} className="text-[--color-danger] hover:underline">Delete</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {editingVideo && <EditVideoModal video={editingVideo} onClose={() => setEditingVideo(null)} onSave={updateVideo} />}
-
-            {/* User Management */}
-            <div className="bg-[--color-bg-secondary] p-6 rounded-lg shadow-lg mb-8">
-                 <h2 className="text-2xl font-bold text-[--color-text-primary] mb-4">User Management</h2>
-                 <input type="text" placeholder="Search users by ID or display name..." value={userSearchTerm} onChange={e => setUserSearchTerm(e.target.value)} className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 mb-4 text-[--color-text-primary]"/>
+                 <h2 className="text-2xl font-bold text-[--color-text-primary] mb-4">Video Management ({videos.length})</h2>
+                 <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                     <input 
+                         type="text" 
+                         placeholder="Search by title or ID..."
+                         value={searchTerm}
+                         onChange={e => setSearchTerm(e.target.value)}
+                         className="flex-grow bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary] placeholder-[--color-text-muted]"
+                     />
+                     <select 
+                         value={statusFilter}
+                         onChange={e => setStatusFilter(e.target.value as any)}
+                         className="bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 text-[--color-text-primary]"
+                     >
+                         <option value="all">All Statuses</option>
+                         <option value="pending">Pending</option>
+                         <option value="approved">Approved</option>
+                         <option value="rejected">Rejected</option>
+                     </select>
+                 </div>
                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-[--color-text-secondary]">
-                        <thead className="text-xs text-[--color-text-primary] uppercase bg-[--color-bg-tertiary]">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">User ID / Display Name</th>
-                                <th scope="col" className="px-6 py-3">Points</th>
-                                <th scope="col" className="px-6 py-3">Total Earned</th>
-                                <th scope="col" className="px-6 py-3">Referred By</th>
-                                <th scope="col" className="px-6 py-3">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredUsers.map(user => (
-                                <tr key={user.id} className="bg-[--color-bg-secondary] border-b border-[--color-border] hover:bg-[--color-bg-tertiary]">
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-[--color-text-primary]">{user.displayName}</div>
-                                        <div className="font-mono text-xs">{user.id}</div>
-                                    </td>
-                                    <td className="px-6 py-4">{user.points}</td>
-                                    <td className="px-6 py-4">{user.totalPointsEarned}</td>
-                                    <td className="px-6 py-4 font-mono text-xs">{user.referredBy || 'N/A'}</td>
-                                    <td className="px-6 py-4">
-                                        <button onClick={() => { const amount = prompt('Enter points to add:'); if (amount) addPointsToUser(user.id, parseInt(amount, 10)); }} className="text-[--color-accent] hover:underline">Add Points</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                     <table className="w-full text-sm text-left text-[--color-text-secondary]">
+                         <thead className="text-xs uppercase bg-[--color-bg-tertiary] text-[--color-text-muted]">
+                             <tr>
+                                 {Object.entries({ title: 'Title', status: 'Status', views: 'Views', submittedAt: 'Date', duration: 'Duration' }).map(([key, value]) => (
+                                     <th key={key} scope="col" className="px-6 py-3" onClick={() => handleSort(key as SortableColumn)}>
+                                         <div className="flex items-center">
+                                             {value}
+                                             {sortColumn === key && (sortOrder === 'asc' ? ' ▲' : ' ▼')}
+                                         </div>
+                                     </th>
+                                 ))}
+                                 <th scope="col" className="px-6 py-3">Actions</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             {sortedVideos.map(video => (
+                                 <tr key={video.id} className="border-b border-[--color-border] hover:bg-[--color-bg-tertiary]">
+                                     <td className="px-6 py-4 font-medium text-[--color-text-primary] whitespace-nowrap max-w-xs truncate">{video.title}</td>
+                                     <td className="px-6 py-4">
+                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${statusColors[video.status]}`}>{video.status}</span>
+                                     </td>
+                                     <td className="px-6 py-4">{video.views}</td>
+                                     <td className="px-6 py-4">{new Date(video.submittedAt).toLocaleDateString()}</td>
+                                     <td className="px-6 py-4">{video.duration}s</td>
+                                     <td className="px-6 py-4 flex items-center space-x-2">
+                                        {video.status === 'pending' && (
+                                            <>
+                                                <button onClick={() => updateVideoStatus(video.id, 'approved')} className="text-[--color-success] hover:underline" title="Approve">Approve</button>
+                                                <button onClick={() => handleRejectVideo(video.id)} className="text-[--color-danger] hover:underline" title="Reject">Reject</button>
+                                            </>
+                                        )}
+                                        <button onClick={() => setEditingVideo(video)} className="text-[--color-accent] hover:underline" title="Edit">Edit</button>
+                                        <button onClick={() => deleteVideo(video.id)} className="text-[--color-danger] hover:underline" title="Delete">Delete</button>
+                                     </td>
+                                 </tr>
+                             ))}
+                         </tbody>
+                     </table>
                  </div>
             </div>
 
-            {/* Purchase Codes */}
-            <div className="bg-[--color-bg-secondary] p-6 rounded-lg shadow-lg">
-                <h2 className="text-2xl font-bold text-[--color-text-primary] mb-4">Purchase Codes</h2>
-                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-[--color-text-secondary]">
-                        <thead className="text-xs text-[--color-text-primary] uppercase bg-[--color-bg-tertiary]">
-                            <tr>
-                                <th scope="col" className="px-6 py-3">Code</th>
-                                <th scope="col" className="px-6 py-3">Points</th>
-                                <th scope="col" className="px-6 py-3">Status</th>
-                                <th scope="col" className="px-6 py-3">Redeemed By</th>
-                                <th scope="col" className="px-6 py-3">Actions</th>
-                            </tr>
-                        </thead>
-                         <tbody>
-                            {purchaseCodes.map(code => (
-                                <tr key={code.code} className="bg-[--color-bg-secondary] border-b border-[--color-border] hover:bg-[--color-bg-tertiary]">
-                                    <td className="px-6 py-4 font-mono text-[--color-text-primary]">{code.code}</td>
-                                    <td className="px-6 py-4">{code.points}</td>
-                                    <td className="px-6 py-4">
-                                        {code.isRedeemed ? <span className="text-[--color-success]">Redeemed</span> : <span className="text-[--color-text-muted]">Available</span>}
-                                    </td>
-                                    <td className="px-6 py-4 font-mono text-xs">{code.redeemedBy || 'N/A'}</td>
-                                    <td className="px-6 py-4">
-                                        {!code.isRedeemed && <button onClick={() => deletePurchaseCode(code.code)} className="text-[--color-danger] hover:underline">Delete</button>}
-                                    </td>
-                                </tr>
+            {editingVideo && <EditVideoModal video={editingVideo} onClose={() => setEditingVideo(null)} onSave={updateVideo} />}
+            
+            {/* User, Payment, Tier Management in a grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                 {/* User Management */}
+                <div className="bg-[--color-bg-secondary] p-6 rounded-lg shadow-lg">
+                    <h2 className="text-2xl font-bold text-[--color-text-primary] mb-4">User Management ({allUsers.length})</h2>
+                    <input 
+                         type="text" 
+                         placeholder="Search users..."
+                         value={userSearchTerm}
+                         onChange={e => setUserSearchTerm(e.target.value)}
+                         className="w-full bg-[--color-bg-tertiary] border border-[--color-border] rounded-md px-3 py-2 mb-4 text-[--color-text-primary] placeholder-[--color-text-muted]"
+                     />
+                    <div className="max-h-96 overflow-y-auto pr-2">
+                        <ul className="space-y-2">
+                            {sortedUsers.map(user => (
+                                <li key={user.id} className="flex justify-between items-center p-3 bg-[--color-bg-tertiary] rounded">
+                                    <div className="overflow-hidden">
+                                        <p className="text-sm font-semibold truncate text-[--color-text-primary]" title={user.displayName}>{user.displayName}</p>
+                                        <p className="text-xs text-[--color-text-muted] font-mono">{user.id}</p>
+                                    </div>
+                                    <div className="text-right flex-shrink-0 ml-4">
+                                        <p className="text-sm font-bold text-[--color-accent]">{user.points.toLocaleString()} Points</p>
+                                        <p className="text-xs text-[--color-text-muted]">Total: {user.totalPointsEarned.toLocaleString()}</p>
+                                    </div>
+                                </li>
                             ))}
-                        </tbody>
-                    </table>
+                        </ul>
+                    </div>
+                </div>
+
+                <div className="space-y-8">
+                    {/* Purchase Codes Management */}
+                    <div className="bg-[--color-bg-secondary] p-6 rounded-lg shadow-lg">
+                        <h2 className="text-2xl font-bold text-[--color-text-primary] mb-4">Purchase Codes</h2>
+                        <div className="max-h-96 overflow-y-auto pr-2">
+                             <ul className="space-y-2">
+                                {purchaseCodes.map(code => (
+                                    <li key={code.code} className="flex justify-between items-center p-3 bg-[--color-bg-tertiary] rounded">
+                                        <div>
+                                            <p className="text-sm font-mono text-[--color-text-primary]">{code.code} ({code.points.toLocaleString()} pts)</p>
+                                            <p className={`text-xs ${code.isRedeemed ? 'text-[--color-success]' : 'text-[--color-text-muted]'}`}>
+                                                {code.isRedeemed ? `Redeemed by ${allUsers.find(u => u.id === code.redeemedBy)?.displayName || 'N/A'}` : 'Not redeemed'}
+                                            </p>
+                                        </div>
+                                        <button onClick={() => deletePurchaseCode(code.code)} className="text-xs text-[--color-danger] hover:underline">Delete</button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

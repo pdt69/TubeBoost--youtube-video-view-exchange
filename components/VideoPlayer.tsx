@@ -31,7 +31,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         selectNextVideo,
         addPoints,
         incrementViewCount,
-        markVideoAsWatched
+        markVideoAsWatched,
+        addNotification
     } = context;
     const WATCH_DURATION = settings.watchDuration || 30;
 
@@ -55,19 +56,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
 
 
     const handleWatchComplete = useCallback(() => {
+        if (!currentUser) return;
         const pointsEarned = settings.pointsPerWatch;
         setCompletionMessage(`Video watched! +${pointsEarned} points earned.`);
 
         addPoints(pointsEarned);
         incrementViewCount(video.id);
         markVideoAsWatched(video.id);
+        addNotification(currentUser.id, `You earned ${pointsEarned} points for watching a video.`, 'success');
         
         setTimeout(() => {
             setIsWatching(false);
             selectNextVideo();
             setTimeout(() => setCompletionMessage(null), 2000); 
         }, 1500);
-    }, [settings.pointsPerWatch, addPoints, incrementViewCount, markVideoAsWatched, video.id, setIsWatching, selectNextVideo]);
+    }, [settings.pointsPerWatch, addPoints, incrementViewCount, markVideoAsWatched, video.id, setIsWatching, selectNextVideo, addNotification, currentUser]);
     
     const startTimer = useCallback(() => {
         if (isWatching) return;
