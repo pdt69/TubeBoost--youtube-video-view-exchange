@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TubeBoost - YouTube View Exchange</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
+
+        /* Default to Dark Theme */
+        --color-bg-primary: #111827; /* gray-900 */
+        --color-bg-secondary: #1f2937; /* gray-800 */
+        --color-bg-tertiary: #374151; /* gray-700 */
+        --color-bg-quaternary: #4b5563; /* gray-600 */
+        --color-border: #4b5563; /* gray-600 */
+        --color-text-primary: #f9fafb; /* gray-50 */
+        --color-text-secondary: #d1d5db; /* gray-300 */
+        --color-text-muted: #9ca3af; /* gray-400 */
+        --color-accent: #06b6d4; /* cyan-500 */
+        --color-accent-hover: #0891b2; /* cyan-600 */
+        --color-special-offer: #f59e0b; /* amber-500 */
+        --color-success: #22c55e; /* green-500 */
+        --color-danger: #ef4444; /* red-500 */
+        --color-warning-bg: rgba(120, 53, 15, 0.2); /* amber-900/20 */
+        --color-warning-border: rgba(120, 53, 15, 0.5); /* amber-900/50 */
+        --color-warning-text: #fcd34d; /* amber-300 */
+        --color-badge-default: #3b82f6; /* blue-500 */
+        --color-badge-user: #10b981; /* green-500 */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.8.2",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react-youtube": "https://aistudiocdn.com/react-youtube@^10.1.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

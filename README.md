@@ -1,11 +1,19 @@
-<div align="center">
+# TubeBoost - YouTube View Exchange
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+This is a YouTube view exchange platform built with React and TypeScript.
 
-  <h1>Built with AI Studio</h2>
+## Features
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+- Earn points by watching videos.
+- Spend points to get views on your own videos.
+- Referral system with tiered bonuses.
+- Admin panel for managing videos, users, and settings.
+- Simulated payment system for buying points.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Auto Installer (One-Click Deploy)
 
-</div>
+Click the button below to automatically deploy this application to your own free hosting account on Netlify.
+
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME)
+
+**Important:** You must replace `https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME` in the link above with the URL of your own GitHub repository for this button to work correctly. You can edit this `README.md` file on GitHub to make that change.

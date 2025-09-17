@@ -1,0 +1,5 @@
+{
+  "name": "TubeBoost - YouTube View Exchange",
+  "description": "An automatic YouTube view exchange platform where users earn points by watching videos for 30 seconds and can spend those points to get views on their own videos. Features an admin panel for video and settings management.",
+  "requestFramePermissions": []
+}
