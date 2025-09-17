@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
+// Fix: Changed the named import of `YouTube` to a default import to resolve the module resolution error.
 import YouTube from 'react-youtube';
 // Fix: Import `YouTubeProps` to derive the `Options` type, as `Options` may not be directly exported.
 import type { YouTubePlayer, YouTubeProps } from 'react-youtube';
