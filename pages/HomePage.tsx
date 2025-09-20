@@ -448,9 +448,8 @@ const HomePage: React.FC = () => {
     
     const handleSkipVideo = () => {
         if (!currentVideo) return;
-        incrementViewCount(currentVideo.id);
         markVideoAsWatched(currentVideo.id);
-        selectNextVideo();
+        selectNextVideo(currentVideo.id);
     };
 
     if (isLoading) {

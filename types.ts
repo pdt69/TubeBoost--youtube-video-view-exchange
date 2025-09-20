@@ -74,7 +74,7 @@ export type AppContextType = {
   logout: () => void;
   updateSettings: (newSettings: Partial<AdminSettings>) => void;
   incrementViewCount: (id: string) => void;
-  selectNextVideo: () => void;
+  selectNextVideo: (videoIdToExclude?: string) => void;
   isLoading: boolean;
   addPaymentOption: () => void;
   updatePaymentOption: (id: string, updatedOption: PaymentOption) => void;

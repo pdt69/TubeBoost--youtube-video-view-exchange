@@ -64,7 +64,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         
         setTimeout(() => {
             setIsWatching(false);
-            selectNextVideo();
+            selectNextVideo(video.id);
             setTimeout(() => setCompletionMessage(null), 2000); 
         }, 1500);
     }, [settings.pointsPerWatch, addPoints, incrementViewCount, markVideoAsWatched, video.id, setIsWatching, selectNextVideo]);

@@ -299,10 +299,18 @@ const App: React.FC = () => {
   };
 
 
-  const generateFairPlaylist = useCallback((allVideos: Video[], user: User | null): Video[] => {
-    const unwatchedVideos = user 
-        ? allVideos.filter(v => !(user.watchedVideoIds || []).includes(v.id))
-        : allVideos;
+  const generateFairPlaylist = useCallback((allVideos: Video[], user: User | null, videoIdToExclude?: string): Video[] => {
+    const unwatchedVideos = allVideos.filter(v => {
+        // Exclude the video that was just watched/skipped
+        if (v.id === videoIdToExclude) {
+            return false;
+        }
+        // Exclude videos that are in the user's watched list
+        if (user && (user.watchedVideoIds || []).includes(v.id)) {
+            return false;
+        }
+        return true;
+    });
 
     const adminVideos = unwatchedVideos.filter(v => v.isDefault).sort((a, b) => a.views - b.views);
     const userVideos = unwatchedVideos.filter(v => !v.isDefault).sort((a, b) => a.views - b.views);
@@ -315,9 +323,9 @@ const App: React.FC = () => {
     return playlist;
   }, []);
 
-  const selectNextVideo = useCallback(() => {
+  const selectNextVideo = useCallback((videoIdToExclude?: string) => {
     if (videos.length === 0) { setCurrentVideo(null); return; }
-    const playlist = generateFairPlaylist(videos, currentUser);
+    const playlist = generateFairPlaylist(videos, currentUser, videoIdToExclude);
     if (playlist.length === 0) { setCurrentVideo(null); return; }
 
     const currentIndex = currentVideo ? playlist.findIndex(v => v.id === currentVideo.id) : -1;
