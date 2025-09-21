@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import YouTube from 'react-youtube';
-// Fix: Import `YouTubeProps` to derive the `Options` type, as `Options` may not be directly exported.
-import type { YouTubePlayer, YouTubeProps } from 'react-youtube';
+import type { YouTubePlayer } from 'react-youtube';
 import { AppContext } from '../contexts/AppContext';
 import type { Video } from '../types';
 
 interface VideoPlayerProps {
     video: Video;
 }
-
-// The `Options` type is derived from `YouTubeProps` for better version compatibility.
-type Options = YouTubeProps['opts'];
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
     const [completionMessage, setCompletionMessage] = useState<string | null>(null);
@@ -113,15 +109,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         }
     }, [startTimer, stopTimer]);
     
-    // Explicitly type `opts` with `Options` to ensure correct type inference for playerVars.
-    const opts: Options = {
+    const opts = {
         height: '390',
         width: '640',
         playerVars: {
-            autoplay: 1,
+            autoplay: 0,
             controls: 1,
             modestbranding: 1,
             rel: 0,
+            enablejsapi: 1,
+            origin: window.location.origin,
         },
     };
 
@@ -129,14 +126,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
 
     return (
         <div className="bg-[--color-bg-secondary] rounded-lg shadow-2xl overflow-hidden">
-            <div className="aspect-w-16 aspect-h-9 relative">
+            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                 <YouTube 
                     videoId={video.id} 
                     opts={opts}
                     onReady={onPlayerReady} 
                     onStateChange={onPlayerStateChange}
-                    className="w-full h-full"
-                    iframeClassName="w-full h-full"
+                    className="absolute inset-0 w-full h-full"
+                    iframeClassName="w-full h-full border-0"
                 />
                  {completionMessage && (
                     <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10 transition-opacity duration-300">
@@ -172,6 +169,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
                             </div>
                         )}
                     </div>
+                    <button 
+                        onClick={() => playerRef.current?.playVideo()}
+                        className="mb-2 bg-[--color-accent] hover:bg-[--color-accent-hover] text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+                    >
+                        ▶ Play Video
+                    </button>
                     <div className="w-full bg-[--color-bg-tertiary] rounded-full h-4 overflow-hidden">
                         <div 
                             className="bg-[--color-accent] h-4 rounded-full transition-all duration-1000 ease-linear flex items-center justify-center text-white text-xs font-bold" 
