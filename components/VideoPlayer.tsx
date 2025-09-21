@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
-import YouTube from 'react-youtube';
-import type { YouTubePlayer } from 'react-youtube';
 import { AppContext } from '../contexts/AppContext';
 import type { Video } from '../types';
+
+// Declare YouTube API types
+declare global {
+    interface Window {
+        YT: any;
+        onYouTubeIframeAPIReady: () => void;
+    }
+}
 
 interface VideoPlayerProps {
     video: Video;
@@ -10,8 +16,10 @@ interface VideoPlayerProps {
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
     const [completionMessage, setCompletionMessage] = useState<string | null>(null);
+    const [player, setPlayer] = useState<any>(null);
+    const [apiReady, setApiReady] = useState(false);
     const context = useContext(AppContext);
-    const playerRef = useRef<YouTubePlayer | null>(null);
+    const playerContainerRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<number | null>(null);
     const timeoutRef = useRef<number | null>(null);
 
@@ -31,6 +39,41 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
     } = context;
     const WATCH_DURATION = settings.watchDuration || 30;
 
+    // Initialize YouTube API
+    useEffect(() => {
+        const initializeYouTubeAPI = () => {
+            if (window.YT && window.YT.Player) {
+                setApiReady(true);
+            } else {
+                window.onYouTubeIframeAPIReady = () => {
+                    setApiReady(true);
+                };
+            }
+        };
+
+        if (document.readyState === 'complete') {
+            initializeYouTubeAPI();
+        } else {
+            window.addEventListener('load', initializeYouTubeAPI);
+            return () => window.removeEventListener('load', initializeYouTubeAPI);
+        }
+    }, []);
+
+    // Create YouTube player when API is ready
+    useEffect(() => {
+        if (apiReady && playerContainerRef.current && !player) {
+            const newPlayer = new window.YT.Player(playerContainerRef.current, {
+                height: '100%',
+                width: '100%',
+                videoId: video.id,
+                events: {
+                    onStateChange: onPlayerStateChange,
+                },
+            });
+            setPlayer(newPlayer);
+        }
+    }, [apiReady, video.id, player]);
+
     useEffect(() => {
         // Cleanup timers from any previous video instance
         if (intervalRef.current) clearInterval(intervalRef.current);
@@ -38,6 +81,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         
         // Reset state for the new video
         setCompletionMessage(null);
+        
+        // Reset player for new video
+        if (player) {
+            player.loadVideoById(video.id);
+        }
 
         // Auto-skip if the user has already watched this video
         if (currentUser?.watchedVideoIds?.includes(video.id)) {
@@ -47,7 +95,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
             }, 100); // Small delay to prevent rapid-fire state update loops
             return () => clearTimeout(skipTimeout);
         }
-    }, [video.id, currentUser, selectNextVideo]);
+    }, [video.id, currentUser, selectNextVideo, player]);
 
 
     const handleWatchComplete = useCallback(() => {
@@ -96,10 +144,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         setIsWatching(false);
     }, [setIsWatching]);
 
-    const onPlayerReady = (event: { target: YouTubePlayer }) => {
-        playerRef.current = event.target;
-    };
-
     const onPlayerStateChange = useCallback((event: { data: number }) => {
         // Player state: PLAYING
         if (event.data === 1) {
@@ -108,33 +152,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
             stopTimer();
         }
     }, [startTimer, stopTimer]);
-    
-    const opts = {
-        height: '390',
-        width: '640',
-        playerVars: {
-            autoplay: 0,
-            controls: 1,
-            modestbranding: 1,
-            rel: 0,
-            enablejsapi: 1,
-            origin: window.location.origin,
-        },
-    };
 
     const progressPercentage = (videoProgress / WATCH_DURATION) * 100;
 
     return (
         <div className="bg-[--color-bg-secondary] rounded-lg shadow-2xl overflow-hidden">
             <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                <YouTube 
-                    videoId={video.id} 
-                    opts={opts}
-                    onReady={onPlayerReady} 
-                    onStateChange={onPlayerStateChange}
+                <div 
+                    ref={playerContainerRef}
                     className="absolute inset-0 w-full h-full"
-                    iframeClassName="w-full h-full border-0"
                 />
+                {!apiReady && (
+                    <div className="absolute inset-0 bg-[--color-bg-tertiary] flex items-center justify-center">
+                        <p className="text-[--color-text-secondary]">Loading video player...</p>
+                    </div>
+                )}
                  {completionMessage && (
                     <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10 transition-opacity duration-300">
                         <div className="text-center text-[--color-text-primary] p-4 rounded-lg bg-[--color-bg-secondary]/80 backdrop-blur-sm">
@@ -170,7 +202,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
                         )}
                     </div>
                     <button 
-                        onClick={() => playerRef.current?.playVideo()}
+                        onClick={() => player?.playVideo()}
                         className="mb-2 bg-[--color-accent] hover:bg-[--color-accent-hover] text-white font-bold py-2 px-4 rounded-lg transition duration-300"
                     >
                         ▶ Play Video
