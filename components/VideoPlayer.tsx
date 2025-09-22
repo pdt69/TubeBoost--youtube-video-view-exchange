@@ -67,10 +67,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
                 width: '100%',
                 videoId: video.id,
                 events: {
+                    onReady: () => {
+                        setPlayer(newPlayer);
+                    },
                     onStateChange: onPlayerStateChange,
                 },
             });
-            setPlayer(newPlayer);
         }
     }, [apiReady, video.id, player]);
 
