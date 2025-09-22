@@ -2,24 +2,14 @@ import React, { useState, useEffect, useContext, useRef, useCallback } from 'rea
 import { AppContext } from '../contexts/AppContext';
 import type { Video } from '../types';
 
-// Declare YouTube API types
-declare global {
-    interface Window {
-        YT: any;
-        onYouTubeIframeAPIReady: () => void;
-    }
-}
-
 interface VideoPlayerProps {
     video: Video;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
     const [completionMessage, setCompletionMessage] = useState<string | null>(null);
-    const [player, setPlayer] = useState<any>(null);
-    const [apiReady, setApiReady] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
     const context = useContext(AppContext);
-    const playerContainerRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<number | null>(null);
     const timeoutRef = useRef<number | null>(null);
 
@@ -39,43 +29,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
     } = context;
     const WATCH_DURATION = settings.watchDuration || 30;
 
-    // Initialize YouTube API
-    useEffect(() => {
-        const initializeYouTubeAPI = () => {
-            if (window.YT && window.YT.Player) {
-                setApiReady(true);
-            } else {
-                window.onYouTubeIframeAPIReady = () => {
-                    setApiReady(true);
-                };
-            }
-        };
-
-        if (document.readyState === 'complete') {
-            initializeYouTubeAPI();
-        } else {
-            window.addEventListener('load', initializeYouTubeAPI);
-            return () => window.removeEventListener('load', initializeYouTubeAPI);
-        }
-    }, []);
-
-    // Create YouTube player when API is ready
-    useEffect(() => {
-        if (apiReady && playerContainerRef.current && !player) {
-            const newPlayer = new window.YT.Player(playerContainerRef.current, {
-                height: '100%',
-                width: '100%',
-                videoId: video.id,
-                events: {
-                    onReady: () => {
-                        setPlayer(newPlayer);
-                    },
-                    onStateChange: onPlayerStateChange,
-                },
-            });
-        }
-    }, [apiReady, video.id, player]);
-
     useEffect(() => {
         // Cleanup timers from any previous video instance
         if (intervalRef.current) clearInterval(intervalRef.current);
@@ -83,22 +36,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         
         // Reset state for the new video
         setCompletionMessage(null);
-        
-        // Reset player for new video
-        if (player) {
-            player.loadVideoById(video.id);
-        }
+        setIsPlaying(false);
 
         // Auto-skip if the user has already watched this video
         if (currentUser?.watchedVideoIds?.includes(video.id)) {
             console.log(`Video ${video.id} already watched. Skipping.`);
             const skipTimeout = setTimeout(() => {
                 selectNextVideo();
-            }, 100); // Small delay to prevent rapid-fire state update loops
+            }, 100);
             return () => clearTimeout(skipTimeout);
         }
-    }, [video.id, currentUser, selectNextVideo, player]);
-
+    }, [video.id, currentUser, selectNextVideo]);
 
     const handleWatchComplete = useCallback(() => {
         const pointsEarned = settings.pointsPerWatch;
@@ -122,7 +70,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         intervalRef.current = window.setInterval(() => {
             setVideoProgress(prev => {
-                // Ensure progress doesn't exceed duration before timeout fires
                 if (prev >= WATCH_DURATION) {
                     if (intervalRef.current) clearInterval(intervalRef.current);
                     return WATCH_DURATION;
@@ -132,7 +79,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         }, 1000);
 
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        // Deduct 1 second from timeout to sync with the final interval tick
         timeoutRef.current = window.setTimeout(() => {
             if (intervalRef.current) clearInterval(intervalRef.current);
             setVideoProgress(WATCH_DURATION);
@@ -146,30 +92,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         setIsWatching(false);
     }, [setIsWatching]);
 
-    const onPlayerStateChange = useCallback((event: { data: number }) => {
-        // Player state: PLAYING
-        if (event.data === 1) {
-            startTimer();
-        } else {
-            stopTimer();
-        }
-    }, [startTimer, stopTimer]);
+    const handlePlayClick = () => {
+        setIsPlaying(true);
+        startTimer();
+    };
+
+    const handlePauseClick = () => {
+        setIsPlaying(false);
+        stopTimer();
+    };
 
     const progressPercentage = (videoProgress / WATCH_DURATION) * 100;
 
     return (
         <div className="bg-[--color-bg-secondary] rounded-lg shadow-2xl overflow-hidden">
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                <div 
-                    ref={playerContainerRef}
+            <div className="relative w-full bg-black" style={{ paddingBottom: '56.25%' }}>
+                <iframe
                     className="absolute inset-0 w-full h-full"
+                    src={`https://www.youtube.com/embed/${video.id}?enablejsapi=1&origin=${window.location.origin}&autoplay=0&controls=1`}
+                    title={video.title}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
                 />
-                {!apiReady && (
-                    <div className="absolute inset-0 bg-[--color-bg-tertiary] flex items-center justify-center">
-                        <p className="text-[--color-text-secondary]">Loading video player...</p>
-                    </div>
-                )}
-                 {completionMessage && (
+                {completionMessage && (
                     <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10 transition-opacity duration-300">
                         <div className="text-center text-[--color-text-primary] p-4 rounded-lg bg-[--color-bg-secondary]/80 backdrop-blur-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-[--color-success] mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -194,7 +140,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
                             {isWatching ? (
                                 <span>Points will be awarded in:</span>
                             ) : (
-                                <span>Play video to start earning points</span>
+                                <span>Click play to start earning points</span>
                             )}
                         </div>
                         {isWatching && (
@@ -203,12 +149,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
                             </div>
                         )}
                     </div>
-                    <button 
-                        onClick={() => player?.playVideo()}
-                        className="mb-2 bg-[--color-accent] hover:bg-[--color-accent-hover] text-white font-bold py-2 px-4 rounded-lg transition duration-300"
-                    >
-                        ▶ Play Video
-                    </button>
+                    <div className="flex gap-2 mb-2">
+                        <button 
+                            onClick={handlePlayClick}
+                            disabled={isWatching}
+                            className="bg-[--color-accent] hover:bg-[--color-accent-hover] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+                        >
+                            ▶ Start Timer
+                        </button>
+                        <button 
+                            onClick={handlePauseClick}
+                            disabled={!isWatching}
+                            className="bg-[--color-bg-quaternary] hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed text-[--color-text-primary] font-bold py-2 px-4 rounded-lg transition duration-300"
+                        >
+                            ⏸ Pause Timer
+                        </button>
+                    </div>
                     <div className="w-full bg-[--color-bg-tertiary] rounded-full h-4 overflow-hidden">
                         <div 
                             className="bg-[--color-accent] h-4 rounded-full transition-all duration-1000 ease-linear flex items-center justify-center text-white text-xs font-bold" 
