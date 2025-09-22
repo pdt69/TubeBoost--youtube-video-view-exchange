@@ -109,7 +109,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
             <div className="relative w-full bg-black" style={{ paddingBottom: '56.25%' }}>
                 <iframe
                     className="absolute inset-0 w-full h-full"
-                    src={`https://www.youtube.com/embed/${video.id}?enablejsapi=1&origin=${window.location.origin}&autoplay=0&controls=1`}
+                    src={`https://www.youtube-nocookie.com/embed/${video.id}?autoplay=0&controls=1&rel=0&modestbranding=1`}
                     title={video.title}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
