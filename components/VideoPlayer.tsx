@@ -108,12 +108,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ video }) => {
         <div className="bg-[--color-bg-secondary] rounded-lg shadow-2xl overflow-hidden">
             <div className="relative w-full bg-black" style={{ paddingBottom: '56.25%' }}>
                 <iframe
-                    className="absolute inset-0 w-full h-full"
-                    src={`https://www.youtube-nocookie.com/embed/${video.id}?autoplay=0&controls=1&rel=0&modestbranding=1`}
+                    className="absolute inset-0 w-full h-full border-0"
+                    src={`https://www.youtube.com/embed/${video.id}?controls=1&showinfo=0&rel=0&fs=1&playsinline=1`}
                     title={video.title}
                     frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
                 />
                 {completionMessage && (
                     <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10 transition-opacity duration-300">
